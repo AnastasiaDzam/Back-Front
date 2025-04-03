@@ -1,0 +1,22 @@
+.container {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+  height: 100px;
+  padding: 20px;
+  cursor: pointer;
+}
+
+.addButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 10%);
+  transition: transform 0.2s ease;
+}
+
+.addButton:hover {
+  transform: scale(1.5);
+}

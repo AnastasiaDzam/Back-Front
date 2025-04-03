@@ -1,0 +1,59 @@
+:root {
+  /* colors */
+  --primary-neutral-0: rgb(255 255 255 / 100%);
+  --primary-neutral-50: rgb(244 243 243 / 100%);
+  --primary-neutral-100: rgb(232 231 231 / 100%);
+  --primary-neutral-150: rgb(221 219 219 / 100%);
+  --primary-neutral-200: rgb(210 207 207 / 100%);
+  --primary-neutral-250: rgb(187 183 183 / 100%);
+  --primary-neutral-300: rgb(165 159 159 / 100%);
+  --primary-neutral-400: rgb(142 135 135 / 100%);
+  --primary-neutral-500: rgb(114 108 108 / 100%);
+  --primary-neutral-600: rgb(85 81 81 / 100%);
+  --primary-neutral-700: rgb(57 54 54 / 100%);
+  --primary-neutral-800: rgb(43 41 41 / 100%);
+  --primary-neutral-900: rgb(28 27 27 / 100%);
+
+  /* background colors */
+  --background-primary-main: #0b00196e;
+  --background-primary-dark: #000;
+  --background-primary-dark-90: rgb(0 0 0 / 90%);
+
+  /* border colors */
+  --border-primary-color: #646cff;
+  --border-primary-color-300: #646cff70;
+
+  /* shadow colors */
+  --shadow-primary-color: #646cff;
+  --shadow-success-color: #00cc3a;
+
+  /* text colors */
+  --text-primary-color: #b9bcff;
+
+  /* fonts */
+  --font-size-small: 12px;
+  --font-size-base: 16px;
+  --font-size-large: 24px;
+  --line-height-small: 1.4;
+  --line-height-base: 1.5;
+  --line-height-large: 1.8;
+  --font-family-primary: 'Lora', serif;
+
+  /* border-radius */
+  --border-radius-small: 4px;
+  --border-radius-medium: 8px;
+  --border-radius-large: 12px;
+
+  /* z-indexes */
+  --z-index-0: 0;
+  --z-index-1: 10;
+  --z-index-2: 20;
+  --z-index-3: 30;
+  --z-index-4: 40;
+  --z-index-5: 50;
+  --z-index-6: 60;
+  --z-index-7: 70;
+  --z-index-8: 80;
+  --z-index-9: 90;
+  --z-index-10: 100;
+}

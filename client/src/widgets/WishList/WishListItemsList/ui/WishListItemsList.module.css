@@ -1,0 +1,14 @@
+.container {
+  display: flex;
+  flex: 2.5;
+  padding: 10px 20px;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media screen and (width <= 500px) {
+  .container {
+    max-width: 70%;
+  }
+}

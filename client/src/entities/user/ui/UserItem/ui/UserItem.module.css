@@ -1,0 +1,30 @@
+.userItem {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-primary-color);
+}
+
+.userItem:hover {
+  background-color: var(--border-primary-color-300);
+}
+
+@media screen and (width <= 768px) {
+  .userItem {
+    flex-direction: column;
+  }
+}
+
+.owner {
+  color: var(--shadow-success-color);
+}
+
+.name {
+  text-decoration: underline;
+}

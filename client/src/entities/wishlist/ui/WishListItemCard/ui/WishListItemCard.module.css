@@ -1,0 +1,31 @@
+.mainContainer {
+  display: flex;
+  gap: 10px;
+  min-width: 200px;
+  padding: 15px;
+  border: 1px solid var(--border-primary-color);
+  border-radius: var(--border-radius-large);
+  height: auto;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 20px;
+}
+
+.point {
+  display: flex;
+  justify-content: space-between;
+}
+
+.mainContainer:hover {
+  box-shadow: 0 0 15px 5px var(--shadow-primary-color);
+}
+
+@media (width <= 768px) {
+  .mainContainer {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,28 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto !important;
+  padding: 10px 30px;
+  color: var(--text-primary-color);
+  background-color: var(--background-primary-dark);
+  outline: 2px solid var(--border-primary-color);
+}
+
+.logo {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--font-size-large);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.menuButton {
+  color: var(--text-primary-color);
+}
+
+.menu {
+  background-color: var(--background-primary-dark) !important;
+}

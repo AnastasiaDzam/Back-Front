@@ -1,0 +1,19 @@
+.swiperContainer {
+  width: 100%;
+  max-width: 100% !important;
+  height: auto;
+  width: fit-content;
+}
+
+.slide {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+}
+
+.image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

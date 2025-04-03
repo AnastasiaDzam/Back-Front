@@ -1,0 +1,12 @@
+{
+  "development": {
+    "use_env_variable": "DB"
+  },
+  "test": {
+    "use_env_variable": "DB",
+    "logging": false
+  },
+  "production": {
+    "use_env_variable": "DB"
+  }
+}

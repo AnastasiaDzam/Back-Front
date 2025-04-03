@@ -1,0 +1,44 @@
+.sidebarContainer {
+  position: relative;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  height: 100vh;
+  overflow-x: hidden;
+  color: var(--text-primary-color);
+  background-color: var(--background-primary-dark-90);
+  transition: width 0.3s;
+}
+
+.open {
+  width: 40vw;
+  outline: 2px solid var(--border-primary-color);
+}
+
+.sidebarButton {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  z-index: var(--z-index-10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--text-primary-color);
+  border-radius: var(--border-radius-small);
+  transition: left 0.3s, transform 0.3s;
+  transform: translateY(-50%);
+}
+
+.openButton {
+  left: 40vw;
+}

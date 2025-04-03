@@ -1,0 +1,2611 @@
+openapi: 3.0.0
+
+info:
+  title: Wishlist API
+  description: API для приложения, которое позволяет вести совместные списки желаний.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000/api
+    description: Локальный сервер разработки
+  - url: ws://localhost:3000
+    description: WebSocket сервер
+
+paths:
+
+  /ws:
+    get:
+      tags:
+        - WebSocket
+      summary: Установление WebSocket подключения
+      description: Подключение к серверу через WebSocket. Клиент использует этот путь для начала постоянного взаимодействия.
+      responses:
+        101:
+          description: Успешное установление WebSocket-соединения.
+        400:
+          description: Ошибка — некорректный запрос.
+        401:
+          description: Ошибка авторизации.
+        500:
+          description: Внутренняя ошибка сервера.
+
+  /auth/check-email:
+    post:
+      tags:
+        - Authentication
+      summary: Проверка email на существование
+      description: Проверяет, существует ли указанный email при помощи стороннего сервиса. Эта операция может использоваться, например, для проверки, зарегистрирован ли пользователь или доступен ли email для регистрации.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: E-mail, который необходимо проверить на существование.
+                  example: 'user@example.com'
+      responses:
+        200:
+          description: Email проверен успешно. В ответе возвращается информация о существовании email.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Email найден'
+                  data:
+                    type: object
+                    properties:
+                      exists:
+                        type: boolean
+                        description: Признак существования email.
+                        example: true
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        400:
+          description: Входные данные некорректны (например, отсутствует поле email или email имеет неверный формат).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Email обязателен для проверки и должен быть корректным.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Email обязателен для проверки и должен быть корректным.'
+        500:
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Ошибка подключения к сервису проверки email или сбой самой системы.'
+
+  /auth/users:
+    get:
+      tags:
+        - Authentication
+      summary: Получение списка всех пользователей.
+      description: Этот эндпоинт предоставляет список всех зарегистрированных пользователей.
+      responses:
+        200:
+          description: Успешное получение списка пользователей.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'success'
+                  data:
+                    type: array
+                    description: Массив объектов, содержащих данные пользователей.
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: Уникальный идентификатор пользователя.
+                          example: 1
+                        email:
+                          type: string
+                          description: Адрес электронной почты пользователя.
+                          example: 'user@example.com'
+                        firstName:
+                          type: string
+                          description: Имя пользователя.
+                          example: 'John'
+                        lastName:
+                          type: string
+                          description: Фамилия пользователя.
+                          example: 'Doe'
+                        avatarSrc:
+                          type: string
+                          description: URL аватара пользователя.
+                          example: 'avatar.png'
+        404:
+          description: Пользователи не найдены в системе.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Пользователи не найдены в системе.'
+                  data:
+                    type: array
+                    description: Пустой массив в случае отсутствия пользователей.
+                    example: []
+                  error:
+                    type: string
+                    example: 'Пользователи не найдены в системе.'
+        500:
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Подробное описание ошибки, если оно доступно.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /auth/refreshTokens:
+    post:
+      tags:
+        - Authentication
+      summary: Обновление токенов доступа.
+      description: >
+        Этот эндпоинт используется для генерации новых токенов доступа и обновления (access token и refresh token).
+        Потребуется наличие корректного refresh токена, передаваемого в заголовке Authorization. При успешной верификации
+        возвращаются новые токены и информация о текущем пользователе.
+      parameters:
+        - in: header
+          name: Authorization
+          description: Refresh токен в формате Bearer Token.
+          required: true
+          schema:
+            type: string
+            example: Bearer <refresh_token>
+      responses:
+        200:
+          description: Успешное обновление токенов доступа.
+          headers:
+            Set-Cookie:
+              description: Новый refresh токен, установленный в cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Токены успешно созданы.'
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        description: Информация о пользователе, для которого были сгенерированы токены.
+                        properties:
+                          id:
+                            type: integer
+                            description: Уникальный идентификатор пользователя.
+                            example: 1
+                          email:
+                            type: string
+                            description: Электронная почта пользователя.
+                            example: 'user@example.com'
+                          firstName:
+                            type: string
+                            description: Имя пользователя.
+                            example: 'John'
+                          lastName:
+                            type: string
+                            description: Фамилия пользователя.
+                            example: 'Doe'
+                          avatarSrc:
+                            type: string
+                            description: URL аватара пользователя.
+                            example: 'avatar.png'
+                      accessToken:
+                        type: string
+                        description: Новый токен доступа.
+                        example: 'eyJhbGciOiJIUzI1NiIsInR5cCIgOiAi...'
+        401:
+          description: Refresh токен недействителен или отсутствует.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: 'Refresh токен недействителен или отсутствует.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки в процессе верификации токена.
+                    example: 'Refresh токен недействителен или отсутствует.'
+        500:
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Описание ошибки, если доступно.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /auth/signUp:
+    post:
+      tags:
+        - Authentication
+      summary: Регистрация нового пользователя.
+      description: >
+        Этот эндпоинт используется для регистрации нового пользователя в системе. 
+        В процессе регистрации требуется передать такие данные, как email, пароль, имя, фамилия и аватар. 
+        При успешной регистрации возвращаются данные нового пользователя и токены (access и refresh token).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Электронная почта пользователя.
+                  example: user@example.com
+                password:
+                  type: string
+                  description: Пароль пользователя. Должен быть надежным и содержать не менее 8 символов.
+                  example: Password@123
+                firstName:
+                  type: string
+                  description: Имя пользователя.
+                  example: John
+                lastName:
+                  type: string
+                  description: Фамилия пользователя.
+                  example: Doe
+                image:
+                  type: string
+                  format: binary
+                  description: Файл для аватара пользователя в формате изображения (например, PNG или JPEG).
+      responses:
+        '201':
+          description: Успешная регистрация пользователя.
+          headers:
+            Set-Cookie:
+              description: Устанавливается refresh токен в cookies.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: 'Вы успешно зарегистрированы.'
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        description: Информация о новом зарегистрированном пользователе.
+                        properties:
+                          id:
+                            type: integer
+                            description: Уникальный идентификатор пользователя.
+                            example: 1
+                          email:
+                            type: string
+                            description: Электронная почта пользователя.
+                            example: user@example.com
+                          firstName:
+                            type: string
+                            description: Имя пользователя.
+                            example: John
+                          lastName:
+                            type: string
+                            description: Фамилия пользователя.
+                            example: Doe
+                          avatarSrc:
+                            type: string
+                            description: Путь к изображению аватара пользователя.
+                            example: avatars/avatar.png
+                      accessToken:
+                        type: string
+                        description: Сгенерированный access token для пользователя.
+                        example: 'eyJhbGciOiJIUzI1NiIsInR5cCIgOiAi...'
+        '400':
+          description: Ошибка валидации данных или отсутствует аватар, или пользователь с таким email уже существует.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Имя - обязательное поле для регистрации.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Подробное описание ошибки.
+                    example: 'Пользователь с таким email уже существует'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка записи в базу данных.'
+
+  /auth/signIn:
+    post:
+      tags:
+        - Authentication
+      summary: Вход пользователя.
+      description: >
+        Этот эндпоинт позволяет пользователю войти в систему. Для авторизации необходимо указать email и пароль. 
+        В случае успешного входа возвращаются данные пользователя и токены (access и refresh token). 
+        Refresh токен также сохраняется в cookies.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Электронная почта пользователя, используемая для входа.
+                  example: user@example.com
+                password:
+                  type: string
+                  description: Пароль пользователя. Должен соответствовать паролю, заданному при регистрации.
+                  example: Password@123
+      responses:
+        '200':
+          description: Успешный вход пользователя.
+          headers:
+            Set-Cookie:
+              description: Устанавливается refresh токен в cookies.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Вы успешно вошли.'
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        type: object
+                        description: Информация о вошедшем пользователе.
+                        properties:
+                          id:
+                            type: integer
+                            description: Уникальный идентификатор пользователя.
+                            example: 1
+                          email:
+                            type: string
+                            description: Электронная почта пользователя.
+                            example: user@example.com
+                          firstName:
+                            type: string
+                            description: Имя пользователя.
+                            example: John
+                          lastName:
+                            type: string
+                            description: Фамилия пользователя.
+                            example: Doe
+                          avatarSrc:
+                            type: string
+                            description: Путь к изображению аватара пользователя.
+                            example: avatars/avatar.png
+                      accessToken:
+                        type: string
+                        description: Сгенерированный access token для пользователя.
+                        example: 'eyJhbGciOiJIUzI1NiIsInR5cCIgOiAi...'
+        '400':
+          description: Некорректные данные (валютация не пройдена).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Ошибка валидации данных.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Подробное описание ошибки.
+                    example: 'Поле email обязательно для заполнения.'
+        '401':
+          description: Некорректный пароль.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: 'Неверный пароль.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Подробное описание ошибки.
+                    example: 'Неверный пароль.'
+        '404':
+          description: Пользователь с указанным email не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Пользователь с таким email не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Подробное описание ошибки.
+                    example: 'Email пользователя отсутствует в базе данных.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /auth/signOut:
+    post:
+      tags:
+        - Authentication
+      summary: Выход пользователя из системы.
+      description: >
+        Этот эндпоинт позволяет пользователю завершить текущую сессию. При успешном выходе
+        refresh токен удаляется из cookies. Это действие завершает авторизованную сессию на стороне пользователя.
+      responses:
+        '200':
+          description: Успешный выход пользователя.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Вы успешно вышли.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка взаимодействия с базой данных.'
+
+  /wishlists:
+    get:
+      tags:
+        - Wishlists
+      summary: Получить все списки желаний
+      description: Возвращает массив всех списков желаний.
+      responses:
+        '200':
+          description: Успешное получение списка вишлистов.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Успешное получение списка вишлистов.'
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+    post:
+      summary: Создать новый список желаний
+      description: Создает новый список желаний, используя переданные данные.
+      tags:
+        - Wishlists
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Название списка желаний.
+                image:
+                  type: string
+                  format: binary
+                  description: Изображение для списка желаний.
+      responses:
+        '201':
+          description: Вишлист успешно создан.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: 'Вишлист успешно создан.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Неудачная операция создания - валидация, отсутствие файлов или иная ошибка.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Не удалось содать вишлист.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Картинка обязательна при создании вишлиста.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /wishlists/{id}:
+    get:
+      summary: Получить список желаний по ID
+      description: Возвращает данные списка желаний, определенного переданным ID.
+      tags:
+        - Wishlists
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Идентификатор списка желаний
+      responses:
+        '200':
+          description: Вишлист успешно получен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Вишлист успешно получен.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Передан невалидный ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Невалидный ID вишлиста.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Невалидный ID вишлиста.'
+        '404':
+          description: Вишлист не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Вишлист не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Вишлист не найден.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+    put:
+      summary: Обновить список желаний по ID
+      description: Обновляет данные существующего списка желаний. Возвращает измененный вишлист.
+      tags:
+        - Wishlists
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Идентификатор списка желаний
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Название списка желаний.
+                image:
+                  type: string
+                  format: binary
+                  description: Изображение для списка желаний.
+      responses:
+        '200':
+          description: Вишлист успешно обновлен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Вишлист успешно обновлен.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Передан невалидный ID, невалидные данные для обновления или нет прав на изменение, не удалось обновить.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Невалидный ID вишлиста.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Не удалось обновить вишлист.'
+        '404':
+          description: Вишлист не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Вишлист не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Вишлист не найден.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+    delete:
+      summary: Удалить список желаний по ID
+      description: Удаляет список желаний с указанным ID. Возвращает удаленный вишлист.
+      tags:
+        - Wishlists
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Идентификатор списка желаний
+      responses:
+        '200':
+          description: Вишлист успешно удалён.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Вишлист успешно удалён.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Передан невалидный ID или не удалось удалить.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Невалидный ID вишлиста.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Не удалось удалить вишлист.'
+        '404':
+          description: Вишлист не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Вишлист не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Вишлист не найден.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /wishlists/invite/{id}:
+    post:
+      summary: Пригласить пользователя в список желаний
+      description: Отправляет приглашение пользователю для добавления в список желаний. Возвращает обновленный вишлист.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Идентификатор списка желаний
+      tags:
+        - Wishlists
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: number
+                  description: ID приглашаемого пользователя.
+      responses:
+        '201':
+          description: Пользователь успешно приглашен в вишлист.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: 'Пользователь успешно приглашен в вишлист.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Неудачная операция создания - валидация, отсутствие прав на приглашение, не найден пользователь, или иная ошибка.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Не удалось пригласить пользователя.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Нет прав на приглашение пользователей в этот вишлист.'
+        '404':
+          description: Вишлист не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Вишлист не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Вишлист не найден.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+    post:
+      summary: Пригласить пользователя в список желаний
+      description: Отправляет приглашение пользователю для добавления в список желаний.
+      tags:
+        - Wishlists
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя, которого нужно пригласить.
+                wishlistId:
+                  type: string
+                  description: ID списка желаний.
+      responses:
+        '200':
+          description: Приглашение успешно отправлено
+        '400':
+          description: Неверный запрос
+        '401':
+          description: Неавторизованный запрос
+
+  /wishlists/kick-out/{id}:
+    post:
+      summary: Удалить пользователя из списка желаний
+      description: Исключает пользователя из указанного списка желаний. Возвращает обновленный вишлист.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Идентификатор списка желаний
+      tags:
+        - Wishlists
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: number
+                  description: ID удаляемого пользователя.
+      responses:
+        '200':
+          description: Пользователь успешно удален из вишлиста.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Пользователь успешно удален из вишлиста.'
+                  data:
+                    $ref: '#/components/schemas/Wishlist'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Ошибка запроса - валидация, отсутствие прав, пользователь не найден, или иная ошибка.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Не удалось удалить пользователя.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'У вас нет прав для удаления пользователя из этого списка желаний.'
+        '404':
+          description: Вишлист или пользователь не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Вишлист или пользователь не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    nullable: true
+                    example: 'Вишлист не найден.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /wishlistItem:
+    post:
+      tags:
+        - wishlistItems
+      summary: Создание новой записи в списке желаний.
+      description: >
+        Этот эндпоинт позволяет пользователю создать новую запись в списке желаний. Необходимые поля: title, description, maxPrice, minPrice, links, wishlistId  email. 
+        В случае успешного завершения работы эндпоинта возвращаются данные по новой записи в списке желаний и вложенная информация по сущностям Link, Image, Comment.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Название желания.
+                  example: 'New Smartphone'
+                description:
+                  type: string
+                  description: Описание желания.
+                  example: 'A high-end smartphone with amazing features'
+                maxPrice:
+                  type: number
+                  description: Максимальная стоимость желания.
+                  example: 1200
+                minPrice:
+                  type: number
+                  description: Минимальная стоимость желания.
+                  example: 1000
+                links:
+                  type: array
+                  items:
+                    type: string
+                  description: Массив ссылок на примеры этого желания.
+                  example:
+                    ['https://example.com/item1', 'https://example.com/item2']
+                wishlistId:
+                  type: number
+                  description: ID вишлиста, которому будет пренадлежать новая запись.
+                  example: 1
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Массив файлов в расширении png/jpg/jpeg.
+                priority:
+                  type: string
+                  description: Приоритет желания внутри вишлиста.
+                  enum:
+                    - 'не особо нужно'
+                    - 'было бы славно'
+                    - 'очень нужно'
+                    - 'душу продать'
+                  example: 'очень нужно'
+      responses:
+        '201':
+          description: Успешное создание записи.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: 'Запись успешно создана'
+                  data:
+                    $ref: '#/components/schemas/WishlistItem'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Название является обязательным и должно быть непустой строкой.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Не удалось создать новую запись.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /wishlistItem/{id}:
+    put:
+      tags:
+        - wishlistItems
+      summary: Изменение записи в списке желаний.
+      description: >
+        Этот эндпоинт позволяет пользователю изменить существующую запись в списке желаний. Необходимые поля: title, description, maxPrice, minPrice, links, wishlistId. Изменить запись может только автор записи. 
+        В случае успешного завершения работы эндпоинта возвращаются данные по измененной записи в списке желаний и вложенная информация по сущностям Link, Image, Comment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Уникальный идентификатор записи.
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Название желания.
+                  example: 'New Smartphone'
+                description:
+                  type: string
+                  description: Описание желания.
+                  example: 'A high-end smartphone with amazing features'
+                maxPrice:
+                  type: number
+                  description: Максимальная стоимость желания.
+                  example: 1200
+                minPrice:
+                  type: number
+                  description: Минимальная стоимость желания.
+                  example: 1000
+                linksToAdd:
+                  type: array
+                  items:
+                    type: string
+                  description: Массив для добавления ссылок на примеры этого желания.
+                  example:
+                    ['https://example.com/item1', 'https://example.com/item2']
+                linksToRemove:
+                  type: array
+                  items:
+                    type: string
+                  description: Массив для удаления ссылок на примеры этого желания.
+                  example:
+                    ['https://example.com/item1', 'https://example.com/item2']
+                wishlistId:
+                  type: number
+                  description: ID вишлиста, которому будет пренадлежать новая запись.
+                  example: 1
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Массив файлов в расширении png/jpg/jpeg.
+                priority:
+                  type: string
+                  description: Приоритет желания внутри вишлиста.
+                  enum:
+                    - 'не особо нужно'
+                    - 'было бы славно'
+                    - 'очень нужно'
+                    - 'душу продать'
+                  example: 'очень нужно'
+      responses:
+        '200':
+          description: Успешное обновление записи.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Запись успешно обновлена'
+                  data:
+                    $ref: '#/components/schemas/WishlistItem'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Ошибка валидации, или наличия картинок, или валидации ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Невалидные данные по ID.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Каждая ссылка в массиве ссылок должна быть допустимой строкой URL.'
+        '403':
+          description: Ошибка проверки на авторство.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 403
+                  message:
+                    type: string
+                    example: 'У вас нет прав на изменение этой записи.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'У вас нет прав на изменение этой записи.'
+        '404':
+          description: Ошибка, если такая запись не найдена.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Запись не найдена.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Запись не найдена.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+    delete:
+      tags:
+        - wishlistItems
+      summary: Удаление записи в списке желаний.
+      description: >
+        Этот эндпоинт позволяет пользователю удалить существующую запись в списке желаний. Изменить запись может только автор записи. 
+        В случае успешного завершения работы эндпоинта возвращаются данные по удаленной записи в списке желаний и вложенная информация по сущностям Link, Image, Comment.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Уникальный идентификатор записи.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Успешное удаление записи.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Запись успешно удалена.'
+                  data:
+                    $ref: '#/components/schemas/WishlistItem'
+                  error:
+                    type: string
+                    nullable: true
+                    example: null
+        '400':
+          description: Ошибка валидации ID.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Невалидные данные по ID.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Невалидные данные по ID.'
+        '403':
+          description: Ошибка проверки на авторство.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 403
+                  message:
+                    type: string
+                    example: 'У вас нет прав на удаление этой записи.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'У вас нет прав на удаление этой записи.'
+        '404':
+          description: Ошибка, если такая запись не найдена.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Запись не найдена.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Запись не найдена.'
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    description: Текст ошибки, если доступен.
+                    example: 'Ошибка подключения к базе данных.'
+
+  /comments/{id}:
+    get:
+      tags:
+        - Comment
+      summary: Получить комментарий по ID
+      description: Возвращает комментарий с указанным ID. Комментарий содержит вложенные данные об авторе.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Уникальный идентификатор комментария.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        200:
+          description: Комментарий получен успешно. В ответе содержится объект с вложенными данными.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Комментарий успешно получен.'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      text:
+                        type: string
+                        example: 'Это текст комментария.'
+                      author:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 42
+                          email:
+                            type: string
+                            example: 'user@example.com'
+                          firstName:
+                            type: string
+                            example: 'Иван'
+                          lastName:
+                            type: string
+                            example: 'Иванов'
+                          avatarSrc:
+                            type: string
+                            example: 'https://example.com/avatars/ivanov.jpg'
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        400:
+          description: Невалидный ID. Сервер возвращает сообщение об ошибке.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Некорректный ID комментария.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'ID должен быть положительным целым числом.'
+        404:
+          description: Комментарий с указанным ID не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Комментарий с ID 1 не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Комментарий с ID 1 не найден.'
+        500:
+          description: Сервер лёг.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Какая-то внутренняя ошибка сервера'
+
+    delete:
+      tags:
+        - Comment
+      summary: Удалить комментарий по ID
+      description: Удаляет комментарий с указанным ID. Доступно только владельцу комментария.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Уникальный идентификатор комментария.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        200:
+          description: Комментарий успешно удалён. В ответе содержится объект с удаленным комментарием.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Комментарий с ID {id} успешно удалён.'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      text:
+                        type: string
+                        example: 'Это текст комментария.'
+                      author:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 42
+                          email:
+                            type: string
+                            example: 'user@example.com'
+                          firstName:
+                            type: string
+                            example: 'Иван'
+                          lastName:
+                            type: string
+                            example: 'Иванов'
+                          avatarSrc:
+                            type: string
+                            example: 'https://example.com/avatars/ivanov.jpg'
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        400:
+          description: Невалидный ID комментария или недостаточно прав для удаления комментария. Сервер возвращает сообщение об ошибке.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Недостаточно прав для удаления комментария с ID {id} или ID некорректен.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'ID должен быть положительным целым числом или у вас нет доступа.'
+        404:
+          description: Комментарий с указанным ID не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Комментарий с ID {id} не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Комментарий с ID {id} не найден.'
+        500:
+          description: Сервер лёг.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Какая-то внутренняя ошибка сервера.'
+
+    put:
+      tags:
+        - Comment
+      summary: Изменить комментарий по ID
+      description: Изменяет комментарий с указанным ID. Доступно только владельцу комментария.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Уникальный идентификатор комментария.
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  example: 'Какой-то новый текст комментария.'
+                wishlistItemId:
+                  type: integer
+                  example: 1
+      responses:
+        200:
+          description: Комментарий успешно изменён. В ответе содержится объект с изменённым комментарием.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 'Комментарий с ID {id} успешно изменён.'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      text:
+                        type: string
+                        example: 'Какой-то новый текст комментария.'
+                      author:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 42
+                          email:
+                            type: string
+                            example: 'user@example.com'
+                          firstName:
+                            type: string
+                            example: 'Иван'
+                          lastName:
+                            type: string
+                            example: 'Иванов'
+                          avatarSrc:
+                            type: string
+                            example: 'https://example.com/avatars/ivanov.jpg'
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        400:
+          description: Невалидный ID комментария, или невалидный ID записи из списка желаний, или ошибка валидации поля text, или недостаточно прав для изменения комментария. Сервер возвращает сообщение об ошибке.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Недостаточно прав для удаления комментария с ID {id} или ID некорректен.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'ID должен быть положительным целым числом или у вас нет доступа.'
+        404:
+          description: Комментарий с указанным ID не найден.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 404
+                  message:
+                    type: string
+                    example: 'Комментарий с ID {id} не найден.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Комментарий с ID {id} не найден.'
+        500:
+          description: Сервер лёг.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Какая-то внутренняя ошибка сервера.'
+
+  /comments:
+    post:
+      tags:
+        - Comment
+      summary: Создать новый комментарий
+      description: Создаёт новый комментарий под записью из списка желаний. Доступно только авторизованным пользователям.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  description: Текст комментария.
+                  example: 'Отличный товар, рекомендую!'
+                wishlistItemId:
+                  type: integer
+                  description: Уникальный идентификатор записи из списка желаний.
+                  example: 1
+      responses:
+        201:
+          description: Комментарий успешно создан. В ответе содержится объект созданного комментария.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 201
+                  message:
+                    type: string
+                    example: 'Комментарий успешно создан.'
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        description: Уникальный идентификатор созданного комментария.
+                        example: 1
+                      text:
+                        type: string
+                        description: Содержимое комментария.
+                        example: 'Отличный товар, рекомендую!'
+                      wishlistItemId:
+                        type: integer
+                        description: ID записи из списка желаний, под которой написан комментарий.
+                        example: 1
+                      author:
+                        type: object
+                        description: Информация об авторе комментария.
+                        properties:
+                          id:
+                            type: integer
+                            description: Уникальный идентификатор автора.
+                            example: 42
+                          email:
+                            type: string
+                            description: E-mail автора.
+                            example: 'user@example.com'
+                          firstName:
+                            type: string
+                            description: Имя автора.
+                            example: 'Иван'
+                          lastName:
+                            type: string
+                            description: Фамилия автора.
+                            example: 'Иванов'
+                          avatarSrc:
+                            type: string
+                            description: Ссылка на аватар автора.
+                            example: 'https://example.com/avatars/ivanov.jpg'
+                  error:
+                    type: object
+                    nullable: true
+                    example: null
+        400:
+          description: Входные данные некорректны (например, пустое поле text или невалидный wishlistItemId).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: 'Некорректные данные для создания комментария.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Поле text не должно быть пустым. ID записи должен быть положительным целым числом.'
+        500:
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 500
+                  message:
+                    type: string
+                    example: 'Внутренняя ошибка сервера.'
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+                  error:
+                    type: string
+                    example: 'Ошибка базы данных или другой системный сбой.'
+
+  /images/avatars/{filename}:
+    get:
+      summary: Получить аватар
+      description: Доступ к аватару пользователя по имени файла.
+      tags:
+        - Static Files
+      parameters:
+        - name: filename
+          in: path
+          description: Имя файла аватара.
+          required: true
+          schema:
+            type: string
+            example: 'example-avatar.jpg'
+      responses:
+        '200':
+          description: Успешно полученный аватар.
+          content:
+            image/jpeg: {}
+            image/png: {}
+        '404':
+          description: Файл не найден.
+
+  /images/wishlistItem/{filename}:
+    get:
+      summary: Получить изображение элемента из списка желаний
+      description: Доступ к изображению элемента из списка желаний по имени файла.
+      tags:
+        - Static Files
+      parameters:
+        - name: filename
+          in: path
+          description: Имя файла изображения.
+          required: true
+          schema:
+            type: string
+            example: 'example-item.jpg'
+      responses:
+        '200':
+          description: Успешно полученное изображение.
+          content:
+            image/jpeg: {}
+            image/png: {}
+        '404':
+          description: Файл не найден.
+
+  /images/wishlistsBackgrouds/{filename}:
+    get:
+      summary: Получить фоновое изображение списка желаний
+      description: Доступ к фоновому изображению списка желаний по имени файла.
+      tags:
+        - Static Files
+      parameters:
+        - name: filename
+          in: path
+          description: Имя фонового изображения.
+          required: true
+          schema:
+            type: string
+            example: 'background.jpg'
+      responses:
+        '200':
+          description: Успешно полученное изображение.
+          content:
+            image/jpeg: {}
+            image/png: {}
+        '404':
+          description: Файл не найден.
+
+  /logs/access.log:
+    get:
+      summary: Получить лог файл
+      description: Доступ к лог файлу по имени `access.log` из директории `logs`.
+      tags:
+        - Static Files
+      responses:
+        '200':
+          description: Успешно полученный лог файл.
+          content:
+            text/plain:
+              example: |
+                GET /api/wishlists/1 [32m200[39m 64.516 ms - 3885
+                GET /api/wishlists/1%D1%8B%D1%8B [33m400[39m 0.368 ms - 75
+                GET /api/wishlists/1%D1%8B%D1%8B [33m400[0m 1.584 ms - 75
+                GET /api/wishlists/134 [33m404[0m 70.933 ms - 86
+                GET /api/wishlists [32m200[0m 28.441 ms - 3887
+                GET /api/wishlists [32m200[0m 22.670 ms - 3887
+                GET /api/wishlists 200 47.111 ms - 3887
+                GET /api/wishlists undefined200[0m 57.464 ms - 3887
+                GET /api/wishlists undefined200[0m 12.018 ms - 3887
+        '404':
+          description: Файл не найден.
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        data:
+          type: any | null
+        error:
+          type: string | null
+
+    WSMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Тип сообщения.
+        payload:
+          type: object
+          description: Полезная нагрузка сообщения.
+
+    WSUser:
+      type: object
+      $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Уникальный идентификатор пользователя.
+          example: 1
+        firstName:
+          type: string
+          description: Имя пользователя.
+          example: 'Николай'
+        lastName:
+          type: string
+          description: Фамилия пользователя.
+          example: 'Нидворай'
+        email:
+          type: string
+          description: Email пользователя.
+          example: 'polina_ne@gmail.com'
+        password:
+          type: string
+          description: Пароль пользователя.
+          example: 'Qwerty123@'
+        avatarSrc:
+          type: string
+          description: URL аватара.
+          example: 'image-2.png'
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+
+    Wishlist:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Уникальный идентификатор списка желаний.
+          example: 1
+        title:
+          type: string
+          description: Название списка желаний.
+          example: 'Волки по-жизни'
+        description:
+          type: string
+          description: Описание списка желаний.
+          example: 'Список желаний для компании волков по-жизни'
+        backgroundPictureSrc:
+          type: string
+          description: URL изображения для заднего фона.
+          example: 'image-2.png'
+        ownerId:
+          type: number
+          description: Уникальный идентификатор владельца списка желаний.
+          example: 1
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+        owner:
+          type: object
+          description: Владелец списка желаний.
+          $ref: '#/components/schemas/User'
+        invitedUsers:
+          type: array
+          description: Приглашенные пользователи в список желаний.
+          items:
+            $ref: '#/components/schemas/User'
+        wishlistItems:
+          type: array
+          description: Элементы из списка желаний.
+          items:
+            $ref: '#/components/schemas/WishlistItem'
+
+    WishlistUser:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Уникальный идентификатор записи в промежуточной таблице.
+          example: 1
+        userId:
+          type: number
+          description: Уникальный идентификатор пользователя.
+          example: 1
+        wishlistId:
+          type: number
+          description: Уникальный идентификатор списка желаний.
+          example: 1
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+
+    WishlistItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор желания.
+          example: 1
+        title:
+          type: string
+          description: Название желания.
+          example: 'Свинья-антистресс'
+        description:
+          type: string
+          description: Описание желания.
+          example: 'Очень нужная штука'
+        maxPrice:
+          type: number
+          description: Максимальная цена желания.
+          example: 1200
+        minPrice:
+          type: number
+          description: Минимальная цена желания.
+          example: 1000
+        authorId:
+          type: number
+          description: Уникальный идентификатор владельца желания.
+          example: 1
+        wishlistId:
+          type: number
+          description: Уникальный идентификатор владельца списка желаний, в котором находится желание.
+          example: 1
+        priority:
+          type: string
+          description: Приоритет желания.
+          enum:
+            - 'не особо нужно'
+            - 'было бы славно'
+            - 'очень нужно'
+            - 'душу продать'
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+        links:
+          type: array
+          description: Связанные ссылки для элемента списка желаний.
+          items:
+            $ref: '#/components/schemas/Link'
+        images:
+          type: array
+          description: Связанные изображения для элемента списка желаний.
+          items:
+            $ref: '#/components/schemas/Image'
+        comments:
+          type: array
+          description: Комментарии, связанные с элементом списка желаний.
+          items:
+            $ref: '#/components/schemas/Comment'
+
+    Link:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Уникальный идентификатор ссылки.
+          example: 1
+        src:
+          type: string
+          description: Адрес ссылки.
+          example: 'https://yandex.ru'
+        wishlistItemId:
+          type: number
+          description: Уникальный идентификатор записи из списка желаний.
+          example: 1
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+
+    Image:
+      type: object
+      properties:
+        id:
+          type: number
+          description: Уникальный идентификатор картинки.
+          example: 1
+        src:
+          type: string
+          description: Адрес картинки.
+          example: 'image-1.png'
+        wishlistItemId:
+          type: number
+          description: Уникальный идентификатор записи из списка желаний.
+          example: 1
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный идентификатор комментария.
+          example: 1
+        text:
+          type: string
+          description: Текст комментария.
+          example: 'Ну ты губу-то раскатал бом-бом-бом.'
+        userId:
+          type: integer
+          description: Уникальный идентификатор автора комментария.
+          example: 1
+        wishlistItemId:
+          type: integer
+          description: Уникальный идентификатор записи из списка желаний.
+          example: 1
+        createdAt:
+          type: string
+          description: Дата создания записи.
+          format: date-time
+          example: '2023-10-14T12:34:56Z'
+        updatedAt:
+          type: string
+          description: Дата изменения записи.
+          format: date-time
+          example: '2023-10-15T12:34:56Z'
